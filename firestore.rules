@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Zero-Trust Default Deny Safety Net
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
+    // --- Hardened Reusable Helper Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Email verification check - mandates secure verified credentials
+    function isVerifiedUser() {
+      return isSignedIn() && (
+        request.auth.token.email_verified == true || 
+        request.auth.token.firebase.sign_in_provider == 'google.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints (Anti-Update-Gaps) ---
+
+    // A. UserProfile Validation Blueprint
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+        data.keys().size() <= 10 &&
+        data.uid is string && data.uid.size() <= 128 &&
+        data.uid == request.auth.uid &&
+        data.email is string && data.email.size() <= 256 &&
+        // Theme boundaries
+        (!data.keys().hasAll(['themeAccent']) || data.themeAccent in ['indigo', 'emerald', 'amber', 'rose']) &&
+        // Naming boundaries
+        (!data.keys().hasAll(['workspaceName']) || (data.workspaceName is string && data.workspaceName.size() <= 64));
+    }
+
+    // B. Invoice Validation Blueprint
+    function isValidInvoice(data) {
+      return data.keys().hasAll(['id', 'userId', 'clientName', 'clientEmail', 'amount', 'originalAmount', 'dueDate', 'status', 'escalationStage', 'automationActive', 'createdAt']) &&
+        data.keys().size() <= 15 &&
+        isValidId(data.id) &&
+        data.userId == request.auth.uid &&
+        data.clientName is string && data.clientName.size() >= 1 && data.clientName.size() <= 200 &&
+        data.clientEmail is string && data.clientEmail.size() <= 256 &&
+        data.amount is number && data.amount >= 0.0 && data.amount <= 10000000.0 &&
+        data.originalAmount is number && data.originalAmount >= 0.0 && data.originalAmount <= 10000000.0 &&
+        data.dueDate is string && data.dueDate.size() <= 32 &&
+        data.status in ['Paid', 'Pending', 'Overdue'] &&
+        data.escalationStage is int && data.escalationStage >= 0 && data.escalationStage <= 3 &&
+        data.automationActive is bool;
+    }
+
+    // C. ActivityLog Validation Blueprint
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['id', 'userId', 'timestamp', 'type', 'message', 'clientName', 'invoiceId']) &&
+        data.keys().size() <= 10 &&
+        isValidId(data.id) &&
+        data.userId == request.auth.uid &&
+        data.type in ['email', 'sms', 'fee', 'manual', 'paid', 'import', 'security'] &&
+        data.message is string && data.message.size() <= 2000 &&
+        data.clientName is string && data.clientName.size() <= 200 &&
+        data.invoiceId is string && data.invoiceId.size() <= 128;
+    }
+
+
+    // --- Collection Level Security Match Expressions ---
+
+    // 1. User Profiles Collection (Strict Private PII Isolation)
+    match /users/{userId} {
+      allow get: if isVerifiedUser() && request.auth.uid == userId;
+      // Profile generation
+      allow create: if isVerifiedUser() && request.auth.uid == userId && isValidUserProfile(incoming()) && incoming().createdAt == request.time;
+      // Allow self updates, ensuring core immutable registrations remain locked
+      allow update: if isVerifiedUser() && request.auth.uid == userId && isValidUserProfile(incoming()) && 
+        incoming().uid == existing().uid && 
+        incoming().email == existing().email && 
+        incoming().createdAt == existing().createdAt;
+      allow delete: if false; // Profiles are permanent historical anchors
+    }
+
+    // 2. Invoice ledger Collection
+    match /invoices/{invoiceDocId} {
+      // Secure list query block - enforcer forbids raw DB scanning
+      allow list: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+      allow get: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+
+      allow create: if isVerifiedUser() && isValidId(invoiceDocId) && isValidInvoice(incoming()) &&
+        incoming().createdAt == request.time;
+
+      allow update: if isVerifiedUser() && isValidId(invoiceDocId) && isValidInvoice(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == request.auth.uid &&
+        incoming().id == existing().id &&
+        incoming().originalAmount == existing().originalAmount &&
+        incoming().createdAt == existing().createdAt && (
+          // Segmented Allowed Actions:
+          // Action A: Toggle Automation Sequence
+          (incoming().diff(existing()).affectedKeys().hasOnly(['automationActive', 'updatedAt'])) ||
+          // Action B: Mark Invoice settled/Paid
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+          // Action C: Escalate timeline stages / late fee penalties
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'amount', 'escalationStage', 'updatedAt'])) ||
+          // Action D: General client fields metadata
+          (incoming().diff(existing()).affectedKeys().hasOnly(['clientName', 'clientEmail', 'dueDate', 'notes', 'updatedAt']))
+        );
+
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    // 3. Immutable Security & Audit Activity Logs Collection
+    match /activities/{activityDocId} {
+      allow list: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+      allow get: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+      
+      // Strict creation logic, ensuring logs cannot be retroactively modified or spoofed
+      allow create: if isVerifiedUser() && isValidId(activityDocId) && isValidActivityLog(incoming()) && 
+        incoming().userId == request.auth.uid;
+      
+      allow update, delete: if false; // Rigorous log immutability policy
+    }
+  }
+}

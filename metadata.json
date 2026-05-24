@@ -1,0 +1,6 @@
+{
+  "name": "Collecto",
+  "description": "Color Reflex Elimination - A fast-paced, high-fidelity cognitive training reflex game. Match target words and dodge color illusions against a depleting timer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

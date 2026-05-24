@@ -1,0 +1,160 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with tenancy details and authorization level.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique Firebase Authentication user identifier."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Primary account email address."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Human printable display name."
+        },
+        "workspaceName": {
+          "type": "string",
+          "description": "Whitelabel branding name of workspace."
+        },
+        "themeAccent": {
+          "type": "string",
+          "enum": ["indigo", "emerald", "amber", "rose"],
+          "description": "Selected master style accent dye identifier."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp indicating registration moment."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp indicating last update."
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "A payment contract invoice record with compliance recovery parameters.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Custom alphanumeric invoice serial identifier."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Pointer UID matching UserProfile."
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Corporate client legal organization title."
+        },
+        "clientEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Accounts Payable correspondence address for the client."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Current outstanding calculated balance including late fees."
+        },
+        "originalAmount": {
+          "type": "number",
+          "description": "Initial baseline professional billing total value."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Standardized calendar deadline marker."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Paid", "Pending", "Overdue"],
+          "description": "Current status phase of the collection flow."
+        },
+        "escalationStage": {
+          "type": "integer",
+          "description": "Delineates current automated timeline pace iteration."
+        },
+        "automationActive": {
+          "type": "boolean",
+          "description": "Suspends automated triggers if falsified."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Confidential internal freelancer annotations."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Moment document entered database."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp indicating last field alteration."
+        }
+      },
+      "required": ["id", "userId", "clientName", "clientEmail", "amount", "originalAmount", "dueDate", "status", "escalationStage", "automationActive", "createdAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Audit record logging system notifications and communications dispatched.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique log serial ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference tracking user account owner."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Execution timestamp."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["email", "sms", "fee", "manual", "paid", "import", "security"],
+          "description": "Channel or logic source logging classification."
+        },
+        "message": {
+          "type": "string",
+          "description": "Full explanatory log event descriptive text."
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Related client target organization identity."
+        },
+        "invoiceId": {
+          "type": "string",
+          "description": "Target invoice link reference."
+        }
+      },
+      "required": ["id", "userId", "timestamp", "type", "message", "clientName", "invoiceId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Secure master tenant profile records."
+    },
+    "/invoices/{invoiceDocId}": {
+      "schema": "Invoice",
+      "description": "User specific client collections."
+    },
+    "/activities/{activityDocId}": {
+      "schema": "ActivityLog",
+      "description": "Interactive security audit trails."
+    }
+  }
+}
