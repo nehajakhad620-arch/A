@@ -4,7 +4,7 @@ service cloud.firestore {
 
     // 1. Global Zero-Trust Default Deny Safety Net
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
     // --- Hardened Reusable Helper Primitives ---

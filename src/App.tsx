@@ -97,6 +97,9 @@ export default function App() {
   const [shakeAnimation, setShakeAnimation] = useState<boolean>(false);
   const [floatingPoints, setFloatingPoints] = useState<{ id: number; x: number; y: number }[]>([]);
 
+  // Reaction time recording for session metrics
+  const [currentReactionTimes, setCurrentReactionTimes] = useState<number[]>([]);
+
   // Refs for tracking real-time timestamps accurately on the animation frame
   const animationFrameRef = useRef<number | null>(null);
   const roundStartTimeRef = useRef<number>(0);
@@ -295,6 +298,7 @@ export default function App() {
     setSuccessAnimation(false);
     setShakeAnimation(false);
     setFloatingPoints([]);
+    setCurrentReactionTimes([]);
     
     setGameState('PLAYING');
     generateNewRound(0);
@@ -308,6 +312,10 @@ export default function App() {
     if (selectedColor === targetWord) {
       // Sound feedback
       playSynthesizerTone('success');
+      
+      // Calculate correct choice reaction time
+      const elapsedResponseTime = Date.now() - roundStartTimeRef.current;
+      setCurrentReactionTimes(prev => [...prev, elapsedResponseTime]);
       
       // Calculate float starting dimensions for UI success bursts
       const clickX = event ? event.clientX : window.innerWidth / 2;
@@ -385,6 +393,13 @@ export default function App() {
     if (pct < 60) return 'bg-amber-400';
     return 'bg-emerald-500';
   };
+
+  // Calculate session analysis metrics for current attempt
+  const sessionTotalCorrectClicks = score;
+  const sessionLongestStreak = score;
+  const avgReactionTimeMs = currentReactionTimes.length > 0
+    ? Math.round(currentReactionTimes.reduce((sum, val) => sum + val, 0) / currentReactionTimes.length)
+    : 0;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans tracking-tight antialiased">
@@ -797,7 +812,7 @@ export default function App() {
             )}
 
             {/* Scoreboard highlights block */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-5">
               
               <div className="bg-slate-50 border border-slate-200/85 rounded-2xl p-4 text-center">
                 <span className="block text-[10px] text-slate-400 font-mono font-extrabold uppercase">
@@ -829,6 +844,89 @@ export default function App() {
                 </span>
               </div>
 
+            </div>
+
+            {/* Session Analysis Block */}
+            <div className="bg-slate-50/50 border border-slate-200/90 rounded-2xl p-4.5 mb-5 text-left">
+              <div className="flex items-center gap-1.5 mb-3">
+                <Activity className="h-4 w-4 text-indigo-600 animate-pulse" />
+                <span className="text-xs font-black text-slate-700 tracking-wider uppercase font-mono">
+                  🚨 SESSION ANALYSIS
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-2.5">
+                {/* Metric 1: Total Correct Clicks */}
+                <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                  <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider leading-tight">
+                    Total Clicks
+                  </span>
+                  <div className="mt-2 flex items-baseline gap-0.5">
+                    <span className="text-lg font-black text-slate-900 font-mono leading-none">
+                      {sessionTotalCorrectClicks}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-mono font-bold">hits</span>
+                  </div>
+                </div>
+
+                {/* Metric 2: Longest Streak */}
+                <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                  <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider leading-tight">
+                    Longest Streak
+                  </span>
+                  <div className="mt-2 flex items-baseline gap-0.5">
+                    <span className="text-lg font-black text-indigo-600 font-mono leading-none">
+                      {sessionLongestStreak}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-mono font-bold">streak</span>
+                  </div>
+                </div>
+
+                {/* Metric 3: Average Reaction Time */}
+                <div className="bg-white border border-slate-150 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                  <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider leading-tight">
+                    Avg. Response
+                  </span>
+                  <div className="mt-2">
+                    {avgReactionTimeMs > 0 ? (
+                      <div className="flex flex-col">
+                        <span className="text-lg font-black text-emerald-600 font-mono leading-none">
+                          {avgReactionTimeMs}
+                          <span className="text-[8px] font-bold text-slate-400 ml-0.5">ms</span>
+                        </span>
+                        <span className="text-[8px] text-slate-500 mt-1 font-extrabold leading-none uppercase">
+                          {avgReactionTimeMs < 450 ? '⚡ Ultra' : avgReactionTimeMs < 750 ? '🚀 Fast' : '🐢 Steady'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-lg font-black text-slate-300 font-mono leading-none">
+                        —
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Dynamic Sensory Rank Rating tag */}
+              {avgReactionTimeMs > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-150 flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] gap-1 select-none">
+                  <div className="flex items-center gap-1">
+                    <Award className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="font-bold text-slate-500 uppercase tracking-wide">Reflex Rating:</span>
+                  </div>
+                  <span className="font-black text-indigo-600 font-mono text-[10px] uppercase bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                    {avgReactionTimeMs < 450 
+                      ? '⚡ Godlike Reflex Speed' 
+                      : avgReactionTimeMs < 655 
+                      ? '🚀 Supreme Tension Mastery' 
+                      : avgReactionTimeMs < 875 
+                      ? '🎯 Elite Cognitive Flow' 
+                      : avgReactionTimeMs < 1150 
+                      ? '🧠 Focused Sensory Match' 
+                      : '🧘 Calm Measured Response'}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Settings review info details tag (Difficulty configured for this score run) */}

@@ -1,7 +1,20 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import firebaseConfigFile from '../firebase-applet-config.json';
+
+const metaEnv = (import.meta as any).env || {};
+
+const firebaseConfig = {
+  apiKey: metaEnv.VITE_FIREBASE_API_KEY || firebaseConfigFile.apiKey,
+  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigFile.authDomain,
+  projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || firebaseConfigFile.projectId,
+  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigFile.storageBucket,
+  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigFile.messagingSenderId,
+  appId: metaEnv.VITE_FIREBASE_APP_ID || firebaseConfigFile.appId,
+  measurementId: metaEnv.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfigFile.measurementId,
+  firestoreDatabaseId: metaEnv.VITE_FIREBASE_DATABASE_ID || (firebaseConfigFile as any).firestoreDatabaseId || '(default)'
+};
 
 // Helper to determine if Firebase is fully initialized with production credentials
 export const isFirebaseActive = 
@@ -12,7 +25,7 @@ export const isFirebaseActive =
 const app = (getApps().length > 0) ? getApp() : initializeApp(firebaseConfig);
 
 // Initialize Firebase SDK objects
-export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId || '(default)');
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
 export const auth = getAuth(app);
 
 // Strict Operational Types as mandated by Firebase skill specifications
